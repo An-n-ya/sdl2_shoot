@@ -1,4 +1,4 @@
-use std::{rc::Rc, time::Duration};
+use std::{collections::VecDeque, rc::Rc, time::Duration};
 
 use sdl2::{
     event::Event,
@@ -6,8 +6,7 @@ use sdl2::{
     keyboard::Keycode,
     pixels::Color,
     rect::Rect,
-    render::{Canvas, Texture, TextureCreator, WindowCanvas},
-    sys::Window,
+    render::{Texture, TextureCreator, WindowCanvas},
     video::WindowContext,
     Sdl,
 };
@@ -56,11 +55,15 @@ impl App {
     }
 
     pub fn run(&mut self) -> Result<(), String> {
+        let bullet_texture = Rc::new(self.texture_creator.load_texture(
+            "assets/Main ship weapons/PNGs/Main ship weapon - Projectile - Auto cannon bullet.png",
+        )?);
         let texture = self.texture_creator.load_texture(
             "assets/Main Ship/Main Ship - Bases/PNGs/Main Ship - Base - Full health.png",
         )?;
         let texture = Rc::new(texture);
         let mut player = Entity::new(100, 100, texture);
+        let mut bullets = vec![];
         'mainloop: loop {
             for event in self.sdl.event_pump()?.poll_iter() {
                 match Self::handle_event(event, &mut player) {
@@ -68,9 +71,34 @@ impl App {
                     LoopInstruction::Break => break 'mainloop,
                 }
             }
-            player.update_pos(0, Self::WIDTH as i32, 0, Self::HEIGHT as i32, 8);
+            player.update(0, Self::WIDTH as i32, 0, Self::HEIGHT as i32, 8);
+            if player.firing && player.firing_ready {
+                player.firing_ready = false;
+                player.cd = 0;
+                bullets.push(Self::create_bullet(
+                    player.x,
+                    player.y,
+                    16,
+                    4,
+                    bullet_texture.clone(),
+                ));
+            }
+            let mut remove_ind = vec![];
+            for (index, bullet) in bullets.iter().enumerate() {
+                if bullet.x > Self::WIDTH as i32 || bullet.health == 0 {
+                    remove_ind.push(index);
+                }
+            }
+            for i in 0..remove_ind.len() {
+                bullets.remove(remove_ind[i] - i);
+            }
             self.canvas.clear();
-            Self::draw_entity(&mut self.canvas, &player);
+
+            for bullet in bullets.iter_mut() {
+                bullet.x += bullet.dx;
+                Self::draw_entity(&mut self.canvas, bullet);
+            }
+            Self::draw_entity(&mut self.canvas, &mut player);
             self.canvas.present();
 
             std::thread::sleep(Duration::from_millis(16));
@@ -79,14 +107,29 @@ impl App {
         Ok(())
     }
 
-    fn draw_entity(canvas: &mut WindowCanvas, entity: &Entity) {
+    fn create_bullet<'a>(
+        x: i32,
+        y: i32,
+        dx: i32,
+        total_frame: usize,
+        texture: Rc<Texture<'a>>,
+    ) -> Entity {
+        let mut entity = Entity::new(x, y, texture);
+        entity.dx = dx;
+        entity.total_frame = total_frame;
+        entity
+    }
+
+    fn draw_entity(canvas: &mut WindowCanvas, entity: &mut Entity) {
         let query = entity.texture.query();
-        let width = query.width;
+        let total_width = query.width;
+        let width = total_width / entity.total_frame as u32;
         let height = query.height;
+        let src_rect = Rect::new(entity.current_frame as i32 * width as i32, 0, width, height);
         canvas
             .copy_ex(
                 &entity.texture,
-                None,
+                src_rect,
                 Some(Rect::new(entity.x, entity.y, width * 2, height * 2)),
                 90.0,
                 None,
@@ -94,6 +137,7 @@ impl App {
                 false,
             )
             .ok();
+        entity.current_frame = (entity.current_frame + 1) % entity.total_frame;
     }
 
     fn handle_event(event: Event, entity: &mut Entity) -> LoopInstruction {
@@ -124,6 +168,11 @@ impl App {
             Keycode::Right => {
                 entity.right = false;
             }
+            Keycode::LCtrl => {
+                entity.firing = false;
+                entity.firing_ready = true;
+                entity.cd = 0;
+            }
             Keycode::Escape => return LoopInstruction::Break,
             _ => {}
         }
@@ -134,27 +183,18 @@ impl App {
         match keycode {
             Keycode::Up => {
                 entity.up = true;
-                if entity.y >= 8 {
-                    entity.y -= 8;
-                }
             }
             Keycode::Down => {
                 entity.down = true;
-                if entity.y + 8 < Self::HEIGHT as i32 {
-                    entity.y += 8
-                }
             }
             Keycode::Left => {
                 entity.left = true;
-                if entity.x >= 8 {
-                    entity.x -= 8
-                }
             }
             Keycode::Right => {
                 entity.right = true;
-                if entity.x + 8 < Self::WIDTH as i32 {
-                    entity.x += 8
-                }
+            }
+            Keycode::LCtrl => {
+                entity.firing = true;
             }
             Keycode::Escape => return LoopInstruction::Break,
             _ => {}
