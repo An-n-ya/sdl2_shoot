@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, rc::Rc, time::Duration};
+use std::{rc::Rc, time::Duration};
 
 use sdl2::{
     event::Event,
@@ -6,24 +6,21 @@ use sdl2::{
     keyboard::Keycode,
     pixels::Color,
     rect::Rect,
-    render::{Texture, TextureCreator, WindowCanvas},
-    video::WindowContext,
+    render::WindowCanvas,
     Sdl,
 };
 
-use crate::entity::Entity;
+use crate::{
+    entity::{ComponentTexture, Entity, EntityEvent},
+    player::Player,
+};
 
 pub struct App {
     sdl: Sdl,
-    name: String,
     canvas: WindowCanvas,
-    texture_creator: TextureCreator<WindowContext>,
 }
 
-enum LoopInstruction {
-    Continue,
-    Break,
-}
+type EntityType<'a> = Box<dyn Entity<'a> + 'a>;
 
 impl App {
     const WIDTH: u32 = 1280;
@@ -44,161 +41,122 @@ impl App {
             .map_err(|e| e.to_string())?;
         canvas.set_draw_color(Color::RGBA(96, 128, 255, 255));
         canvas.clear();
-        let texture_creator = canvas.texture_creator();
-
-        Ok(Self {
-            sdl,
-            name: name.to_string(),
-            canvas,
-            texture_creator,
-        })
+        Ok(Self { sdl, canvas })
     }
 
-    pub fn run(&mut self) -> Result<(), String> {
-        let bullet_texture = Rc::new(self.texture_creator.load_texture(
-            "assets/Main ship weapons/PNGs/Main ship weapon - Projectile - Auto cannon bullet.png",
+    pub fn run<'a>(&mut self) -> Result<(), String> {
+        let texture_creator = self.canvas.texture_creator();
+        let engine_texture = {
+            let engine_texture = Rc::new(texture_creator.load_texture(
+            "assets/Main Ship/Main Ship - Engine Effects/PNGs/Main Ship - Engines - Base Engine - Powering.png"
         )?);
-        let texture = self.texture_creator.load_texture(
-            "assets/Main Ship/Main Ship - Bases/PNGs/Main Ship - Base - Full health.png",
-        )?;
-        let texture = Rc::new(texture);
-        let mut player = Entity::new(100, 100, texture);
-        let mut bullets = vec![];
+            ComponentTexture {
+                texture: engine_texture,
+                total_frame: 4,
+                current_frame: 0,
+            }
+        };
+        let projectile_texture = {
+            let projectile_texture = Rc::new(texture_creator.load_texture(
+                "assets/Main ship weapons/PNGs/Main ship weapon - Projectile - Auto cannon bullet.png"
+        )?);
+            ComponentTexture {
+                texture: projectile_texture,
+                total_frame: 4,
+                current_frame: 0,
+            }
+        };
+        let body_texture = {
+            let body_texture = Rc::new(texture_creator.load_texture(
+                "assets/Main Ship/Main Ship - Bases/PNGs/Main Ship - Base - Full health.png",
+            )?);
+            ComponentTexture {
+                texture: body_texture,
+                total_frame: 1,
+                current_frame: 0,
+            }
+        };
+        let game_viewport = Rect::new(0, 0, Self::WIDTH, Self::HEIGHT);
+        let player = Player::new(
+            game_viewport,
+            engine_texture,
+            body_texture,
+            projectile_texture,
+        );
+        let mut entities = vec![];
+        let player: Box<dyn Entity> = Box::new(player);
+        entities.push(Some(player));
         'mainloop: loop {
             for event in self.sdl.event_pump()?.poll_iter() {
-                match Self::handle_event(event, &mut player) {
-                    LoopInstruction::Continue => {}
-                    LoopInstruction::Break => break 'mainloop,
+                match event {
+                    Event::KeyDown {
+                        keycode: Some(Keycode::Escape),
+                        ..
+                    }
+                    | Event::Quit { .. } => break 'mainloop,
+                    _ => self.handle_event(&mut entities, event),
                 }
             }
-            player.update(0, Self::WIDTH as i32, 0, Self::HEIGHT as i32, 8);
-            if player.firing && player.firing_ready {
-                player.firing_ready = false;
-                player.cd = 0;
-                bullets.push(Self::create_bullet(
-                    player.x,
-                    player.y,
-                    16,
-                    4,
-                    bullet_texture.clone(),
-                ));
-            }
-            let mut remove_ind = vec![];
-            for (index, bullet) in bullets.iter().enumerate() {
-                if bullet.x > Self::WIDTH as i32 || bullet.health == 0 {
-                    remove_ind.push(index);
+            let entity_events = self.update(&mut entities);
+            for events in entity_events {
+                match events {
+                    EntityEvent::SpawnBullet(bullet) => entities.push(Some(Box::new(bullet))),
+                    EntityEvent::Empty => {}
                 }
             }
-            for i in 0..remove_ind.len() {
-                bullets.remove(remove_ind[i] - i);
-            }
-            self.canvas.clear();
+            self.clear(&mut entities);
 
-            for bullet in bullets.iter_mut() {
-                bullet.x += bullet.dx;
-                Self::draw_entity(&mut self.canvas, bullet);
-            }
-            Self::draw_entity(&mut self.canvas, &mut player);
+            self.canvas.clear();
+            self.render(&mut entities);
             self.canvas.present();
 
             std::thread::sleep(Duration::from_millis(16));
         }
-
         Ok(())
     }
 
-    fn create_bullet<'a>(
-        x: i32,
-        y: i32,
-        dx: i32,
-        total_frame: usize,
-        texture: Rc<Texture<'a>>,
-    ) -> Entity {
-        let mut entity = Entity::new(x, y, texture);
-        entity.dx = dx;
-        entity.total_frame = total_frame;
-        entity
+    fn update<'a>(&mut self, entities: &mut Vec<Option<EntityType<'a>>>) -> Vec<EntityEvent<'a>> {
+        let mut events = vec![];
+        for entity in entities.iter_mut() {
+            if let Some(entity_inner) = entity {
+                events.push(entity_inner.update());
+            }
+        }
+        events
     }
 
-    fn draw_entity(canvas: &mut WindowCanvas, entity: &mut Entity) {
-        let query = entity.texture.query();
-        let total_width = query.width;
-        let width = total_width / entity.total_frame as u32;
-        let height = query.height;
-        let src_rect = Rect::new(entity.current_frame as i32 * width as i32, 0, width, height);
-        canvas
-            .copy_ex(
-                &entity.texture,
-                src_rect,
-                Some(Rect::new(entity.x, entity.y, width * 2, height * 2)),
-                90.0,
-                None,
-                false,
-                false,
-            )
-            .ok();
-        entity.current_frame = (entity.current_frame + 1) % entity.total_frame;
+    fn clear<'a>(&mut self, entities: &mut Vec<Option<EntityType<'a>>>) {
+        let mut new_entities = vec![];
+        let mut ind = vec![];
+        for (index, entity) in entities.iter().enumerate() {
+            if let Some(entity_inner) = entity {
+                if entity_inner.valid() {
+                    ind.push(index);
+                }
+            }
+        }
+        for i in ind {
+            new_entities.push(entities[i].take());
+        }
+        entities.clear();
+        for entity in new_entities {
+            entities.push(entity);
+        }
     }
 
-    fn handle_event(event: Event, entity: &mut Entity) -> LoopInstruction {
-        match event {
-            Event::Quit { .. } => LoopInstruction::Break,
-            Event::KeyDown {
-                keycode: Some(keycode),
-                ..
-            } => Self::handle_key_down(keycode, entity),
-            Event::KeyUp {
-                keycode: Some(keycode),
-                ..
-            } => Self::handle_key_up(keycode, entity),
-            _ => LoopInstruction::Continue,
+    fn render<'a>(&mut self, entities: &mut Vec<Option<Box<dyn Entity<'a> + 'a>>>) {
+        for entity in entities.iter_mut() {
+            if let Some(entity_inner) = entity {
+                entity_inner.render(&mut self.canvas);
+            }
         }
-    }
-    fn handle_key_up(keycode: Keycode, entity: &mut Entity) -> LoopInstruction {
-        match keycode {
-            Keycode::Up => {
-                entity.up = false;
-            }
-            Keycode::Down => {
-                entity.down = false;
-            }
-            Keycode::Left => {
-                entity.left = false;
-            }
-            Keycode::Right => {
-                entity.right = false;
-            }
-            Keycode::LCtrl => {
-                entity.firing = false;
-                entity.firing_ready = true;
-                entity.cd = 0;
-            }
-            Keycode::Escape => return LoopInstruction::Break,
-            _ => {}
-        }
-        LoopInstruction::Continue
     }
 
-    fn handle_key_down(keycode: Keycode, entity: &mut Entity) -> LoopInstruction {
-        match keycode {
-            Keycode::Up => {
-                entity.up = true;
+    fn handle_event<'a>(&mut self, entities: &mut Vec<Option<EntityType<'a>>>, event: Event) {
+        for entity in entities.iter_mut() {
+            if let Some(entity_inner) = entity {
+                entity_inner.handle_event(event.clone());
             }
-            Keycode::Down => {
-                entity.down = true;
-            }
-            Keycode::Left => {
-                entity.left = true;
-            }
-            Keycode::Right => {
-                entity.right = true;
-            }
-            Keycode::LCtrl => {
-                entity.firing = true;
-            }
-            Keycode::Escape => return LoopInstruction::Break,
-            _ => {}
         }
-        LoopInstruction::Continue
     }
 }

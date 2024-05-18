@@ -1,80 +1,97 @@
-use std::{fmt::Debug, rc::Rc};
+use std::rc::Rc;
 
-use sdl2::render::Texture;
+use sdl2::{
+    event::Event,
+    rect::Rect,
+    render::{Texture, WindowCanvas},
+};
 
-pub struct Entity<'a> {
+use crate::bullet::Bullet;
+
+pub enum EntityEvent<'a> {
+    SpawnBullet(Bullet<'a>),
+    Empty,
+}
+
+#[derive(Clone)]
+pub struct ComponentTexture<'a> {
+    pub texture: Rc<Texture<'a>>,
+    pub total_frame: usize,
+    pub current_frame: usize,
+}
+
+impl<'a> ComponentTexture<'a> {
+    pub fn render(&mut self, offset: (i32, i32), canvas: &mut WindowCanvas) {
+        let query = self.texture.query();
+        let total_width = query.width;
+        let width = total_width / self.total_frame as u32;
+        let height = query.height;
+        let src_rect = Rect::new(self.current_frame as i32 * width as i32, 0, width, height);
+        canvas
+            .copy_ex(
+                &self.texture,
+                src_rect,
+                Some(Rect::new(offset.0, offset.1, width * 2, height * 2)),
+                90.0,
+                None,
+                false,
+                false,
+            )
+            .ok();
+        self.current_frame = (self.current_frame + 1) % self.total_frame;
+    }
+}
+
+pub struct EntityBase {
     pub x: i32,
     pub y: i32,
     pub dx: i32,
     pub dy: i32,
-    pub firing: bool,
-    pub firing_speed: usize,
-    pub cd: usize,
-    pub firing_ready: bool,
-    pub health: i32,
-    pub total_frame: usize,
-    pub current_frame: usize,
-    pub texture: Rc<Texture<'a>>,
-    pub left: bool,
-    pub right: bool,
-    pub up: bool,
-    pub down: bool,
+    pub viewport: Rect,
+    pub valid: bool,
 }
 
-impl<'a> Entity<'a> {
-    pub fn new(x: i32, y: i32, texture: Rc<Texture<'a>>) -> Self {
-        Self {
-            x,
-            y,
-            dx: 0,
-            dy: 0,
-            health: 1,
-            total_frame: 1,
-            current_frame: 0,
-            firing: false,
-            firing_ready: true,
-            firing_speed: 20,
-            cd: 0,
-            texture,
-            left: false,
-            right: false,
-            up: false,
-            down: false,
+impl EntityBase {
+    pub fn update_x(&mut self) -> bool {
+        if self.x + self.dx < self.viewport.x + self.viewport.w {
+            self.x += self.dx;
+            true
+        } else {
+            false
         }
     }
-
-    pub fn update(&mut self, low_x: i32, high_x: i32, low_y: i32, high_y: i32, speed: i32) {
-        if self.up && self.y - speed > low_y {
-            self.y -= speed;
+    pub fn update_y(&mut self) -> bool {
+        if self.y + self.dy < self.viewport.y + self.viewport.h {
+            self.y += self.dy;
+            true
+        } else {
+            false
         }
-        if self.down && self.y + speed < high_y {
-            self.y += speed;
+    }
+    pub fn update_x_rev(&mut self) -> bool {
+        if self.x - self.dx >= self.viewport.x {
+            self.x -= self.dx;
+            true
+        } else {
+            false
         }
-        if self.left && self.x - speed > low_x {
-            self.x -= speed;
-        }
-        if self.right && self.x + speed < high_x {
-            self.x += speed;
-        }
-        if self.firing && !self.firing_ready {
-            self.cd = (self.cd + 1) % self.firing_speed;
-            if self.cd == 0 {
-                self.firing_ready = true;
-            }
+    }
+    pub fn update_y_rev(&mut self) -> bool {
+        if self.y - self.dy >= self.viewport.y {
+            self.y -= self.dy;
+            true
+        } else {
+            false
         }
     }
 }
 
-impl<'a> Debug for Entity<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Entity")
-            .field("x", &self.x)
-            .field("y", &self.y)
-            .field("dx", &self.dx)
-            .field("dy", &self.dy)
-            .field("health", &self.health)
-            .field("total_frame", &self.total_frame)
-            .field("current_frame", &self.current_frame)
-            .finish()
+pub trait Entity<'a> {
+    fn render(&mut self, canvas: &mut WindowCanvas);
+    #[allow(unused)]
+    fn handle_event(&mut self, event: Event) {}
+    fn update(&mut self) -> EntityEvent<'a> {
+        EntityEvent::Empty
     }
+    fn valid(&self) -> bool;
 }
