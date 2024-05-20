@@ -1,4 +1,7 @@
-use crate::entity::{ComponentTexture, Entity, EntityBase, EntityEvent};
+use crate::{
+    entity::{Entity, EntityBase, EntityEvent},
+    texture::ComponentTexture,
+};
 
 pub struct Bullet<'a> {
     base: EntityBase,

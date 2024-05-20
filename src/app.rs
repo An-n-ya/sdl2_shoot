@@ -1,18 +1,17 @@
-use std::{rc::Rc, time::Duration};
+use std::time::Duration;
 
 use sdl2::{
-    event::Event,
-    image::{InitFlag, LoadTexture},
-    keyboard::Keycode,
-    pixels::Color,
-    rect::Rect,
-    render::WindowCanvas,
-    Sdl,
+    event::Event, image::InitFlag, keyboard::Keycode, pixels::Color, rect::Rect,
+    render::WindowCanvas, Sdl,
 };
 
 use crate::{
-    entity::{ComponentTexture, Entity, EntityEvent},
+    entity::{Entity, EntityEvent},
     player::Player,
+    texture::{
+        ComponentTexture, BASE_TEXTURES, ENGINE_EFFECTS_IDLE_TEXTURES,
+        ENGINE_EFFECTS_POWERING_TEXTURES, ENGINE_TEXTURES, PROJECTILE_TEXTURES, WEAPON_TEXTURES,
+    },
 };
 
 pub struct App {
@@ -46,40 +45,21 @@ impl App {
 
     pub fn run<'a>(&mut self) -> Result<(), String> {
         let texture_creator = self.canvas.texture_creator();
-        let engine_texture = {
-            let engine_texture = Rc::new(texture_creator.load_texture(
-            "assets/Main Ship/Main Ship - Engine Effects/PNGs/Main Ship - Engines - Base Engine - Powering.png"
-        )?);
-            ComponentTexture {
-                texture: engine_texture,
-                total_frame: 4,
-                current_frame: 0,
-            }
-        };
-        let projectile_texture = {
-            let projectile_texture = Rc::new(texture_creator.load_texture(
-                "assets/Main ship weapons/PNGs/Main ship weapon - Projectile - Auto cannon bullet.png"
-        )?);
-            ComponentTexture {
-                texture: projectile_texture,
-                total_frame: 4,
-                current_frame: 0,
-            }
-        };
-        let body_texture = {
-            let body_texture = Rc::new(texture_creator.load_texture(
-                "assets/Main Ship/Main Ship - Bases/PNGs/Main Ship - Base - Full health.png",
-            )?);
-            ComponentTexture {
-                texture: body_texture,
-                total_frame: 1,
-                current_frame: 0,
-            }
-        };
+        let weapon_texture = ComponentTexture::new(&texture_creator, &WEAPON_TEXTURES[0]);
+        let engine_base_texture = ComponentTexture::new(&texture_creator, &ENGINE_TEXTURES[0]);
+        let idle_texture =
+            ComponentTexture::new(&texture_creator, &ENGINE_EFFECTS_IDLE_TEXTURES[0]);
+        let engine_texture =
+            ComponentTexture::new(&texture_creator, &ENGINE_EFFECTS_POWERING_TEXTURES[0]);
+        let projectile_texture = ComponentTexture::new(&texture_creator, &PROJECTILE_TEXTURES[0]);
+        let body_texture = ComponentTexture::new(&texture_creator, &BASE_TEXTURES[1]);
         let game_viewport = Rect::new(0, 0, Self::WIDTH, Self::HEIGHT);
         let player = Player::new(
             game_viewport,
             engine_texture,
+            engine_base_texture,
+            idle_texture,
+            weapon_texture,
             body_texture,
             projectile_texture,
         );
