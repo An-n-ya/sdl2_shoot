@@ -66,6 +66,11 @@ impl App {
         let mut entities = vec![];
         let player: Box<dyn Entity> = Box::new(player);
         entities.push(Some(player));
+
+        // make frame rate more accurate
+        let mut ticks = unsafe { sdl2_sys::SDL_GetTicks64() };
+        let mut remainder = 0.0;
+
         'mainloop: loop {
             for event in self.sdl.event_pump()?.poll_iter() {
                 match event {
@@ -90,9 +95,19 @@ impl App {
             self.render(&mut entities);
             self.canvas.present();
 
-            std::thread::sleep(Duration::from_millis(16));
+            Self::cap_frame_rate(&mut ticks, &mut remainder);
         }
         Ok(())
+    }
+
+    fn cap_frame_rate(tick: &mut u64, remainder: &mut f64) {
+        let mut wait = 16.0 + *remainder;
+        *remainder = remainder.fract();
+        let frame_time = unsafe { sdl2_sys::SDL_GetTicks64() } - *tick;
+        wait -= (1f64).max(frame_time as f64);
+        std::thread::sleep(Duration::from_millis(wait as u64));
+        *remainder += 0.667;
+        *tick = unsafe { sdl2_sys::SDL_GetTicks64() };
     }
 
     fn update<'a>(&mut self, entities: &mut Vec<Option<EntityType<'a>>>) -> Vec<EntityEvent<'a>> {
