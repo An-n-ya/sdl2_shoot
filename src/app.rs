@@ -1,11 +1,18 @@
 use std::time::Duration;
 
 use sdl2::{
-    event::Event, image::InitFlag, keyboard::Keycode, pixels::Color, rect::Rect,
-    render::WindowCanvas, Sdl,
+    event::Event,
+    image::InitFlag,
+    keyboard::Keycode,
+    pixels::Color,
+    rect::Rect,
+    render::{TextureCreator, WindowCanvas},
+    video::WindowContext,
+    Sdl,
 };
 
 use crate::{
+    enemy::Enemy,
     entity::{Entity, EntityEvent},
     player::Player,
     texture::{
@@ -43,8 +50,7 @@ impl App {
         Ok(Self { sdl, canvas })
     }
 
-    pub fn run<'a>(&mut self) -> Result<(), String> {
-        let texture_creator = self.canvas.texture_creator();
+    fn make_player(texture_creator: &TextureCreator<WindowContext>) -> Player {
         let weapon_texture = ComponentTexture::new(&texture_creator, &WEAPON_TEXTURES[0]);
         let engine_base_texture = ComponentTexture::new(&texture_creator, &ENGINE_TEXTURES[0]);
         let idle_texture =
@@ -63,6 +69,12 @@ impl App {
             body_texture,
             projectile_texture,
         );
+        player
+    }
+
+    pub fn run<'a>(&mut self) -> Result<(), String> {
+        let texture_creator = self.canvas.texture_creator();
+        let player = Self::make_player(&texture_creator);
         let mut entities = vec![];
         let player: Box<dyn Entity> = Box::new(player);
         entities.push(Some(player));
@@ -70,6 +82,8 @@ impl App {
         // make frame rate more accurate
         let mut ticks = unsafe { sdl2_sys::SDL_GetTicks64() };
         let mut remainder = 0.0;
+
+        let mut enemy_spawn_time = rand::random::<u32>() % 60;
 
         'mainloop: loop {
             for event in self.sdl.event_pump()?.poll_iter() {
@@ -95,9 +109,27 @@ impl App {
             self.render(&mut entities);
             self.canvas.present();
 
+            Self::spawn_enemy(&mut enemy_spawn_time, &mut entities, &texture_creator);
+
             Self::cap_frame_rate(&mut ticks, &mut remainder);
         }
         Ok(())
+    }
+
+    fn spawn_enemy<'a>(
+        enemy_spawn_time: &mut u32,
+        entities: &mut Vec<Option<Box<dyn Entity<'a> + 'a>>>,
+        texture_creator: &'a TextureCreator<WindowContext>,
+    ) {
+        *enemy_spawn_time -= 1;
+        if *enemy_spawn_time <= 0 {
+            let game_viewport = Rect::new(0, 0, Self::WIDTH, Self::HEIGHT);
+            let enemy = Enemy::new(texture_creator, game_viewport);
+            let enemy: Box<dyn Entity> = Box::new(enemy);
+            entities.push(Some(enemy));
+
+            *enemy_spawn_time = 30 + (rand::random::<u32>() % 60);
+        }
     }
 
     fn cap_frame_rate(tick: &mut u64, remainder: &mut f64) {

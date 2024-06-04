@@ -16,20 +16,29 @@ pub struct TextureInfo<'a> {
 pub struct ComponentTexture<'a> {
     pub texture: Rc<Texture<'a>>,
     pub total_frame: usize,
+    pub cnt: usize,
     pub current_frame: usize,
 }
 
 impl<'a> ComponentTexture<'a> {
+    const SPEED: usize = 5;
     pub fn new(texture_creator: &'a TextureCreator<WindowContext>, texture: &TextureInfo) -> Self {
         let t = texture_creator.load_texture(texture.path).unwrap();
         ComponentTexture {
             texture: Rc::new(t),
             total_frame: texture.total_frame,
+            cnt: 0,
             current_frame: 0,
         }
     }
 
-    pub fn render_nth(&mut self, index: usize, offset: (i32, i32), canvas: &mut WindowCanvas) {
+    pub fn render_nth(
+        &mut self,
+        index: usize,
+        offset: (i32, i32),
+        angle: f64,
+        canvas: &mut WindowCanvas,
+    ) {
         let query = self.texture.query();
         let total_width = query.width;
         let width = total_width / self.total_frame as u32;
@@ -40,16 +49,17 @@ impl<'a> ComponentTexture<'a> {
                 &self.texture,
                 src_rect,
                 Some(Rect::new(offset.0, offset.1, width * 2, height * 2)),
-                90.0,
+                angle,
                 None,
                 false,
                 false,
             )
             .ok();
     }
-    pub fn render(&mut self, offset: (i32, i32), canvas: &mut WindowCanvas) {
-        self.render_nth(self.current_frame, offset, canvas);
-        self.current_frame = (self.current_frame + 1) % self.total_frame;
+    pub fn render(&mut self, offset: (i32, i32), angle: f64, canvas: &mut WindowCanvas) {
+        self.render_nth(self.current_frame, offset, angle, canvas);
+        self.cnt = (self.cnt + 1) % (self.total_frame * Self::SPEED);
+        self.current_frame = self.cnt / Self::SPEED;
     }
 }
 
@@ -160,5 +170,37 @@ pub const BASE_TEXTURES: [TextureInfo<'static>; 4] = [
     TextureInfo {
         path: "assets/Main Ship/Main Ship - Bases/PNGs/Main Ship - Base - Very damaged.png",
         total_frame: 1,
+    },
+];
+
+pub const ENEMY_BASE_TEXTURES: [TextureInfo<'static>; 2] = [
+    TextureInfo {
+        path: "assets/Kla'ed/Weapons/PNGs/Kla'ed - Scout - Weapons.png",
+        total_frame: 6,
+    },
+    TextureInfo {
+        path: "assets/Kla'ed/Weapons/PNGs/Kla'ed - Frigate - Weapons.png",
+        total_frame: 6,
+    },
+];
+pub const ENEMY_PROJECTILE_TEXTURES: [TextureInfo<'static>; 2] = [
+    TextureInfo {
+        path: "assets/Kla'ed/Projectiles/PNGs/Kla'ed - Bullet.png",
+        total_frame: 4,
+    },
+    TextureInfo {
+        path: "assets/Kla'ed/Projectiles/PNGs/Kla'ed - Big Bullet.png",
+        total_frame: 4,
+    },
+];
+
+pub const ENEMY_ENGINE_TEXTURES: [TextureInfo<'static>; 2] = [
+    TextureInfo {
+        path: "assets/Kla'ed/Engine/PNGs/Kla'ed - Scout - Engine.png",
+        total_frame: 10,
+    },
+    TextureInfo {
+        path: "assets/Kla'ed/Engine/PNGs/Kla'ed - Frigate - Engine.png",
+        total_frame: 12,
     },
 ];

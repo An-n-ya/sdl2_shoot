@@ -57,22 +57,28 @@ impl<'a> Entity<'a> for Player<'a> {
     }
 
     fn render(&mut self, canvas: &mut WindowCanvas) {
-        self.body_texture.render((self.base.x, self.base.y), canvas);
+        self.body_texture
+            .render((self.base.x, self.base.y), Self::DEFAULT_ANGLE, canvas);
         self.engine_base_texture
-            .render((self.base.x, self.base.y), canvas);
+            .render((self.base.x, self.base.y), Self::DEFAULT_ANGLE, canvas);
         if !self.firing {
-            self.weapon_texture
-                .render_nth(0, (self.base.x, self.base.y), canvas);
+            self.weapon_texture.render_nth(
+                0,
+                (self.base.x, self.base.y),
+                Self::DEFAULT_ANGLE,
+                canvas,
+            );
         } else {
             self.weapon_texture
-                .render((self.base.x, self.base.y), canvas);
+                .render((self.base.x, self.base.y), Self::DEFAULT_ANGLE, canvas);
         }
 
         if self.is_moving() {
             self.engine_texture
-                .render((self.base.x, self.base.y), canvas);
+                .render((self.base.x, self.base.y), Self::DEFAULT_ANGLE, canvas);
         } else {
-            self.idle_texture.render((self.base.x, self.base.y), canvas);
+            self.idle_texture
+                .render((self.base.x, self.base.y), Self::DEFAULT_ANGLE, canvas);
         }
     }
 
@@ -98,6 +104,7 @@ impl<'a> Entity<'a> for Player<'a> {
 impl<'a> Player<'a> {
     const DEFAULT_SPEED: i32 = 8;
     const DEFAULT_POSITION: (i32, i32) = (100, 100);
+    const DEFAULT_ANGLE: f64 = 90.0;
     pub fn new(
         viewport: Rect,
         engine_texture: ComponentTexture<'a>,
@@ -144,7 +151,7 @@ impl<'a> Player<'a> {
             valid: true,
         };
 
-        Bullet::new(base, self.projectile_texture.clone())
+        Bullet::new(base, Self::DEFAULT_ANGLE, self.projectile_texture.clone())
     }
 
     fn is_moving(&self) -> bool {

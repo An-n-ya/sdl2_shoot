@@ -5,12 +5,17 @@ use crate::{
 
 pub struct Bullet<'a> {
     base: EntityBase,
+    angle: f64,
     texture: ComponentTexture<'a>,
 }
 
 impl<'a> Bullet<'a> {
-    pub fn new(base: EntityBase, texture: ComponentTexture<'a>) -> Self {
-        Self { base, texture }
+    pub fn new(base: EntityBase, angle: f64, texture: ComponentTexture<'a>) -> Self {
+        Self {
+            base,
+            texture,
+            angle,
+        }
     }
 }
 
@@ -23,7 +28,8 @@ impl<'a> Entity<'a> for Bullet<'a> {
     }
 
     fn render(&mut self, canvas: &mut sdl2::render::WindowCanvas) {
-        self.texture.render((self.base.x, self.base.y), canvas);
+        self.texture
+            .render((self.base.x, self.base.y), self.angle, canvas);
     }
 
     fn valid(&self) -> bool {
