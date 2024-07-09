@@ -32,6 +32,15 @@ impl<'a> ComponentTexture<'a> {
         }
     }
 
+    // return width and height
+    pub fn size(&self) -> (u32, u32) {
+        let query = self.texture.query();
+        let total_width = query.width;
+        let width = total_width / self.total_frame as u32;
+        let height = query.height;
+        (width, height)
+    }
+
     pub fn render_nth(
         &mut self,
         index: usize,

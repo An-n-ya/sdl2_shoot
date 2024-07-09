@@ -103,6 +103,9 @@ impl App {
                     EntityEvent::Empty => {}
                 }
             }
+
+            self.handle_collision(&mut entities);
+
             self.clear(&mut entities);
 
             self.canvas.clear();
@@ -151,6 +154,44 @@ impl App {
         }
         events
     }
+    fn handle_collision<'a>(&mut self, entities: &mut Vec<Option<EntityType<'a>>>) {
+        // dummy version
+        let size = entities.len();
+        for i in 0..size {
+            for j in (i + 1)..size {
+                let (slice1, slice2) = entities.split_at_mut(j);
+                if let Some(ref mut e1) = slice1[i] {
+                    if let Some(ref mut e2) = slice2[0] {
+                        if !e1.valid() || !e2.valid() {
+                            continue;
+                        }
+                        if !e1.is_bullet() && e1.is_enemy() && e2.is_bullet() && e2.is_player()
+                            || e1.is_bullet() && e1.is_player() && !e2.is_bullet() && e2.is_enemy()
+                        {
+                            if let Some(e1_base) = e1.base_mut() {
+                                if let Some(e2_base) = e2.base_mut() {
+                                    let (e1_start_x, e2_start_x) = (e1_base.x, e2_base.x);
+                                    let (e1_end_x, e2_end_x) =
+                                        (e1_base.width + e1_start_x, e2_base.width + e2_start_x);
+                                    let (e1_start_y, e2_start_y) = (e1_base.y, e2_base.y);
+                                    let (e1_end_y, e2_end_y) =
+                                        (e1_base.height + e1_start_y, e2_base.height + e2_start_y);
+                                    if e1_start_x.max(e2_start_x) < e1_end_x.min(e2_end_x)
+                                        && e1_start_y.max(e2_start_y) < e1_end_y.min(e2_end_y)
+                                    {
+                                        // collision happened
+                                        e1_base.valid = false;
+                                        e2_base.valid = false;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    fn collision_helper<'a>(e1: &mut Option<EntityType<'a>>, e2: &mut Option<EntityType<'a>>) {}
 
     fn clear<'a>(&mut self, entities: &mut Vec<Option<EntityType<'a>>>) {
         let mut new_entities = vec![];

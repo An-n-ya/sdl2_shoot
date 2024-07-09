@@ -1,7 +1,7 @@
 use sdl2::{rect::Rect, render::TextureCreator, video::WindowContext};
 
 use crate::{
-    bullet::Bullet,
+    bullet::{Bullet, Side},
     entity::{Entity, EntityBase, EntityEvent},
     texture::{
         ComponentTexture, ENEMY_BASE_TEXTURES, ENEMY_ENGINE_TEXTURES, ENEMY_PROJECTILE_TEXTURES,
@@ -39,6 +39,17 @@ impl<'a> Entity<'a> for Enemy<'a> {
     fn valid(&self) -> bool {
         self.base.valid
     }
+
+    fn is_enemy(&self) -> bool {
+        true
+    }
+
+    fn base(&self) -> Option<&EntityBase> {
+        Some(&self.base)
+    }
+    fn base_mut(&mut self) -> Option<&mut EntityBase> {
+        Some(&mut self.base)
+    }
 }
 
 impl<'a> Enemy<'a> {
@@ -54,9 +65,12 @@ impl<'a> Enemy<'a> {
         let y = (rand::random::<u32>() % viewport.height()) as i32;
         let y = y.clamp(100, viewport.height() as i32 - 100);
         let ticks = unsafe { sdl2_sys::SDL_GetTicks64() };
+        let (width, height) = body_texture.size();
         let base = EntityBase {
             x: viewport.width() as i32,
             y,
+            width: width.try_into().unwrap(),
+            height: height.try_into().unwrap(),
             dx: -(Self::DEFAULT_SPEED + (rand::random::<u32>() % 10) as i32 - 5),
             dy: 0,
             viewport,
@@ -71,15 +85,18 @@ impl<'a> Enemy<'a> {
         }
     }
     pub fn spawn_bullet(&self, offset: i32) -> Bullet<'a> {
+        let (width, height) = self.projectile_texture.size();
         let base = EntityBase {
             x: self.base.x,
             y: self.base.y + offset,
+            width: width.try_into().unwrap(),
+            height: height.try_into().unwrap(),
             dx: -Self::BULLET_SPEED,
             dy: 0,
             viewport: self.base.viewport,
             valid: true,
         };
 
-        Bullet::new(base, Self::DEFAULT_ANGLE, self.projectile_texture.clone())
+        Bullet::new(base, Side::Enemy, Self::DEFAULT_ANGLE, self.projectile_texture.clone())
     }
 }

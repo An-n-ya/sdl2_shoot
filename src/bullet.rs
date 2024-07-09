@@ -3,16 +3,23 @@ use crate::{
     texture::ComponentTexture,
 };
 
+pub enum Side {
+    Enemy,
+    Player
+}
+
 pub struct Bullet<'a> {
     base: EntityBase,
+    side: Side,
     angle: f64,
     texture: ComponentTexture<'a>,
 }
 
 impl<'a> Bullet<'a> {
-    pub fn new(base: EntityBase, angle: f64, texture: ComponentTexture<'a>) -> Self {
+    pub fn new(base: EntityBase, side: Side, angle: f64, texture: ComponentTexture<'a>) -> Self {
         Self {
             base,
+            side,
             texture,
             angle,
         }
@@ -34,5 +41,27 @@ impl<'a> Entity<'a> for Bullet<'a> {
 
     fn valid(&self) -> bool {
         self.base.valid
+    }
+
+    fn is_bullet(&self) -> bool {
+        true
+    }
+    fn is_enemy(&self) -> bool {
+        match self.side {
+            Side::Enemy => true,
+            Side::Player => false,
+        }
+    }
+    fn is_player(&self) -> bool {
+        match self.side {
+            Side::Enemy => false,
+            Side::Player => true,
+        }
+    }
+    fn base(&self) -> Option<&EntityBase> {
+        Some(&self.base)
+    }
+    fn base_mut(&mut self) -> Option<&mut EntityBase> {
+        Some(&mut self.base)
     }
 }

@@ -10,6 +10,8 @@ pub enum EntityEvent<'a> {
 pub struct EntityBase {
     pub x: i32,
     pub y: i32,
+    pub width: i32,
+    pub height: i32,
     pub dx: i32,
     pub dy: i32,
     pub viewport: Rect,
@@ -59,4 +61,19 @@ pub trait Entity<'a> {
         EntityEvent::Empty
     }
     fn valid(&self) -> bool;
+    fn is_bullet(&self) -> bool {
+        false
+    }
+    fn is_player(&self) -> bool {
+        false
+    }
+    fn is_enemy(&self) -> bool {
+        false
+    }
+    fn base(&self) -> Option<&EntityBase> {
+        None
+    }
+    fn base_mut(&mut self) -> Option<&mut EntityBase> {
+        None
+    }
 }

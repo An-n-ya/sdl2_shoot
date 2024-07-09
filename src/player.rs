@@ -1,7 +1,7 @@
 use sdl2::{event::Event, keyboard::Keycode, rect::Rect, render::WindowCanvas};
 
 use crate::{
-    bullet::Bullet,
+    bullet::{Bullet, Side},
     entity::{Entity, EntityBase, EntityEvent},
     texture::ComponentTexture,
 };
@@ -99,6 +99,16 @@ impl<'a> Entity<'a> for Player<'a> {
     fn valid(&self) -> bool {
         self.base.valid
     }
+
+    fn is_player(&self) -> bool {
+        true
+    }
+    fn base(&self) -> Option<&EntityBase> {
+        Some(&self.base)
+    }
+    fn base_mut(&mut self) -> Option<&mut EntityBase> {
+        Some(&mut self.base)
+    }
 }
 
 impl<'a> Player<'a> {
@@ -114,9 +124,12 @@ impl<'a> Player<'a> {
         body_texture: ComponentTexture<'a>,
         projectile_texture: ComponentTexture<'a>,
     ) -> Self {
+        let (width, height) = body_texture.size();
         let base = EntityBase {
             x: Self::DEFAULT_POSITION.0,
             y: Self::DEFAULT_POSITION.1,
+            width: width.try_into().unwrap(),
+            height: height.try_into().unwrap(),
             dx: Self::DEFAULT_SPEED,
             dy: Self::DEFAULT_SPEED,
             viewport,
@@ -142,16 +155,24 @@ impl<'a> Player<'a> {
         }
     }
     pub fn spawn_bullet(&self, offset: i32) -> Bullet<'a> {
+        let (width, height) = self.projectile_texture.size();
         let base = EntityBase {
             x: self.base.x,
             y: self.base.y + offset,
+            width: width.try_into().unwrap(),
+            height: height.try_into().unwrap(),
             dx: self.firing_speed as i32,
             dy: 0,
             viewport: self.base.viewport,
             valid: true,
         };
 
-        Bullet::new(base, Self::DEFAULT_ANGLE, self.projectile_texture.clone())
+        Bullet::new(
+            base,
+            Side::Player,
+            Self::DEFAULT_ANGLE,
+            self.projectile_texture.clone(),
+        )
     }
 
     fn is_moving(&self) -> bool {
