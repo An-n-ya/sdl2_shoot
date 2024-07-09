@@ -1,3 +1,4 @@
+use core::time;
 use std::time::Duration;
 
 use sdl2::{
@@ -13,7 +14,7 @@ use sdl2::{
 
 use crate::{
     enemy::Enemy,
-    entity::{Entity, EntityEvent},
+    entity::{Entity, EntityBase, EntityEvent},
     player::Player,
     texture::{
         ComponentTexture, BASE_TEXTURES, ENGINE_EFFECTS_IDLE_TEXTURES,
@@ -24,6 +25,7 @@ use crate::{
 pub struct App {
     sdl: Sdl,
     canvas: WindowCanvas,
+    is_game_over: bool,
 }
 
 type EntityType<'a> = Box<dyn Entity<'a> + 'a>;
@@ -47,7 +49,11 @@ impl App {
             .map_err(|e| e.to_string())?;
         canvas.set_draw_color(Color::RGBA(96, 128, 255, 255));
         canvas.clear();
-        Ok(Self { sdl, canvas })
+        Ok(Self {
+            sdl,
+            canvas,
+            is_game_over: false,
+        })
     }
 
     fn make_player(texture_creator: &TextureCreator<WindowContext>) -> Player {
@@ -81,6 +87,7 @@ impl App {
 
         // make frame rate more accurate
         let mut ticks = unsafe { sdl2_sys::SDL_GetTicks64() };
+        let mut time_out = None;
         let mut remainder = 0.0;
 
         let mut enemy_spawn_time = rand::random::<u32>() % 60;
@@ -110,13 +117,35 @@ impl App {
 
             self.canvas.clear();
             self.render(&mut entities);
+            if self.is_game_over {
+                self.game_over_screen();
+            }
             self.canvas.present();
 
             Self::spawn_enemy(&mut enemy_spawn_time, &mut entities, &texture_creator);
 
             Self::cap_frame_rate(&mut ticks, &mut remainder);
+
+            if let Some(time_out) = time_out {
+                if ticks >= time_out {
+                    break;
+                }
+            }
+
+            if self.is_game_over && time_out.is_none() {
+                // 2s game exit count down
+                time_out = Some(ticks + 2_000);
+            }
         }
         Ok(())
+    }
+
+    fn game_over_screen(&mut self) {
+        self.canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
+        self.canvas.set_draw_color(Color::RGBA(50, 50, 50, 80));
+        self.canvas
+            .fill_rect(Rect::new(0, 1, Self::WIDTH, Self::HEIGHT))
+            .ok();
     }
 
     fn spawn_enemy<'a>(
@@ -170,18 +199,24 @@ impl App {
                         {
                             if let Some(e1_base) = e1.base_mut() {
                                 if let Some(e2_base) = e2.base_mut() {
-                                    let (e1_start_x, e2_start_x) = (e1_base.x, e2_base.x);
-                                    let (e1_end_x, e2_end_x) =
-                                        (e1_base.width + e1_start_x, e2_base.width + e2_start_x);
-                                    let (e1_start_y, e2_start_y) = (e1_base.y, e2_base.y);
-                                    let (e1_end_y, e2_end_y) =
-                                        (e1_base.height + e1_start_y, e2_base.height + e2_start_y);
-                                    if e1_start_x.max(e2_start_x) < e1_end_x.min(e2_end_x)
-                                        && e1_start_y.max(e2_start_y) < e1_end_y.min(e2_end_y)
-                                    {
-                                        // collision happened
+                                    if Self::is_collision(e1_base, e2_base) {
                                         e1_base.valid = false;
                                         e2_base.valid = false;
+                                    }
+                                }
+                            }
+                        }
+                        if !e1.is_bullet() && e1.is_player() && e2.is_bullet() && e2.is_enemy()
+                            || e1.is_bullet() && e1.is_enemy() && !e2.is_bullet() && e2.is_player()
+                            || !e1.is_bullet() && e1.is_player() && !e2.is_bullet() && e2.is_enemy()
+                            || !e2.is_bullet() && e2.is_player() && !e1.is_bullet() && e1.is_enemy()
+                        {
+                            if let Some(e1_base) = e1.base_mut() {
+                                if let Some(e2_base) = e2.base_mut() {
+                                    if Self::is_collision(e1_base, e2_base) {
+                                        e1_base.valid = false;
+                                        e2_base.valid = false;
+                                        self.is_game_over = true;
                                     }
                                 }
                             }
@@ -189,6 +224,20 @@ impl App {
                     }
                 }
             }
+        }
+    }
+
+    fn is_collision(e1_base: &EntityBase, e2_base: &EntityBase) -> bool {
+        let (e1_start_x, e2_start_x) = (e1_base.x, e2_base.x);
+        let (e1_end_x, e2_end_x) = (e1_base.width + e1_start_x, e2_base.width + e2_start_x);
+        let (e1_start_y, e2_start_y) = (e1_base.y, e2_base.y);
+        let (e1_end_y, e2_end_y) = (e1_base.height + e1_start_y, e2_base.height + e2_start_y);
+        if e1_start_x.max(e2_start_x) < e1_end_x.min(e2_end_x)
+            && e1_start_y.max(e2_start_y) < e1_end_y.min(e2_end_y)
+        {
+            true
+        } else {
+            false
         }
     }
 

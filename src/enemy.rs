@@ -53,10 +53,10 @@ impl<'a> Entity<'a> for Enemy<'a> {
 }
 
 impl<'a> Enemy<'a> {
-    const DEFAULT_SPEED: i32 = 6;
+    const DEFAULT_SPEED: i32 = 4;
     const DEFAULT_ANGLE: f64 = -90.0;
-    const BULLET_SPEED: i32 = 15;
-    const FIRING_SPEED: u64 = 400;
+    const BULLET_SPEED: i32 = 10;
+    const FIRING_SPEED: u64 = 800;
     pub fn new(texture_creator: &'a TextureCreator<WindowContext>, viewport: Rect) -> Self {
         let engine_texture = ComponentTexture::new(&texture_creator, &ENEMY_ENGINE_TEXTURES[0]);
         let body_texture = ComponentTexture::new(&texture_creator, &ENEMY_BASE_TEXTURES[0]);

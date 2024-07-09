@@ -70,7 +70,9 @@ impl<'a> ComponentTexture<'a> {
         if RENDER_DEBUG {
             canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
             canvas.set_draw_color(Color::RGBA(100, 0, 0, 20));
-            canvas.fill_rect(Rect::new(offset.0, offset.1, width, height));
+            canvas
+                .fill_rect(Rect::new(offset.0, offset.1, width, height))
+                .ok();
             canvas.set_draw_color(color);
         }
     }

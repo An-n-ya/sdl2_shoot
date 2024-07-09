@@ -74,6 +74,7 @@ pub trait Entity<'a> {
     fn is_enemy(&self) -> bool {
         false
     }
+    #[allow(unused)]
     fn base(&self) -> Option<&EntityBase> {
         None
     }
