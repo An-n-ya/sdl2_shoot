@@ -24,7 +24,7 @@ impl<'a> Entity<'a> for Enemy<'a> {
         let ticks = unsafe { sdl2_sys::SDL_GetTicks64() };
         if ticks - self.firing_ticks >= Self::FIRING_SPEED {
             self.firing_ticks = ticks;
-            return EntityEvent::SpawnBullet(self.spawn_bullet(50));
+            return EntityEvent::SpawnBullet(self.spawn_bullet(25));
         }
         EntityEvent::Empty
     }
@@ -97,6 +97,11 @@ impl<'a> Enemy<'a> {
             valid: true,
         };
 
-        Bullet::new(base, Side::Enemy, Self::DEFAULT_ANGLE, self.projectile_texture.clone())
+        Bullet::new(
+            base,
+            Side::Enemy,
+            Self::DEFAULT_ANGLE,
+            self.projectile_texture.clone(),
+        )
     }
 }

@@ -2,10 +2,13 @@ use std::rc::Rc;
 
 use sdl2::{
     image::LoadTexture,
+    pixels::Color,
     rect::Rect,
     render::{Texture, TextureCreator, WindowCanvas},
     video::WindowContext,
 };
+
+pub const RENDER_DEBUG: bool = false;
 
 pub struct TextureInfo<'a> {
     pub path: &'a str,
@@ -48,22 +51,28 @@ impl<'a> ComponentTexture<'a> {
         angle: f64,
         canvas: &mut WindowCanvas,
     ) {
-        let query = self.texture.query();
-        let total_width = query.width;
-        let width = total_width / self.total_frame as u32;
-        let height = query.height;
+        let (width, height) = self.size();
         let src_rect = Rect::new(index as i32 * width as i32, 0, width, height);
+        let (x, y) = (offset.0 - width as i32 / 2, offset.1 - height as i32 / 2);
+        let dest_rect = Rect::new(x, y, width * 2, height * 2);
         canvas
             .copy_ex(
                 &self.texture,
                 src_rect,
-                Some(Rect::new(offset.0, offset.1, width * 2, height * 2)),
+                Some(dest_rect),
                 angle,
                 None,
                 false,
                 false,
             )
             .ok();
+        let color = canvas.draw_color();
+        if RENDER_DEBUG {
+            canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
+            canvas.set_draw_color(Color::RGBA(100, 0, 0, 20));
+            canvas.fill_rect(Rect::new(offset.0, offset.1, width, height));
+            canvas.set_draw_color(color);
+        }
     }
     pub fn render(&mut self, offset: (i32, i32), angle: f64, canvas: &mut WindowCanvas) {
         self.render_nth(self.current_frame, offset, angle, canvas);

@@ -20,32 +20,36 @@ pub struct EntityBase {
 
 impl EntityBase {
     pub fn update_x(&mut self) -> bool {
-        if self.x + self.dx < self.viewport.x + self.viewport.w {
-            self.x += self.dx;
+        let new_x = self.x + self.dx;
+        if new_x <= self.viewport.x + self.viewport.w && new_x + self.width >= self.viewport.x {
+            self.x = new_x;
             true
         } else {
             false
         }
     }
     pub fn update_y(&mut self) -> bool {
-        if self.y + self.dy < self.viewport.y + self.viewport.h {
-            self.y += self.dy;
+        let new_y = self.y + self.dy;
+        if new_y <= self.viewport.y + self.viewport.h && new_y + self.height >= self.viewport.y {
+            self.y = new_y;
             true
         } else {
             false
         }
     }
     pub fn update_x_rev(&mut self) -> bool {
-        if self.x - self.dx >= self.viewport.x {
-            self.x -= self.dx;
+        let new_x = self.x - self.dx;
+        if new_x <= self.viewport.x + self.viewport.w && new_x + self.width >= self.viewport.x {
+            self.x = new_x;
             true
         } else {
             false
         }
     }
     pub fn update_y_rev(&mut self) -> bool {
-        if self.y - self.dy >= self.viewport.y {
-            self.y -= self.dy;
+        let new_y = self.y - self.dy;
+        if new_y <= self.viewport.y + self.viewport.h && new_y + self.height >= self.viewport.y {
+            self.y = new_y;
             true
         } else {
             false

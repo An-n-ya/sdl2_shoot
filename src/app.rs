@@ -191,7 +191,6 @@ impl App {
             }
         }
     }
-    fn collision_helper<'a>(e1: &mut Option<EntityType<'a>>, e2: &mut Option<EntityType<'a>>) {}
 
     fn clear<'a>(&mut self, entities: &mut Vec<Option<EntityType<'a>>>) {
         let mut new_entities = vec![];
